@@ -18,7 +18,7 @@ export default function Home() {
   const [edges, , onEdgesChange] = useEdgesState<Edge>([]);
   const { getNodes, setEdges } = useReactFlow();
   const [formula, setFormula] = useState('');
-  const [resultOrg, setResultOrg] = useState();
+  const [resultOrg, setResultOrg] = useState<string>('');
 
   const plusNodes = (molecula: string) => {
     const lastNode = getNodes()[getNodes.length - 1];
@@ -117,7 +117,7 @@ export default function Home() {
 
     const result = findPreFixo?.concat(findInFixo??'', 'O');
     console.log(result)
-    setResultOrg(result)
+    setResultOrg(result??"");
   }
 
   return (
