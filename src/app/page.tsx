@@ -1,13 +1,15 @@
 'use client';
-import { addEdge, Background, Connection, ConnectionMode, Edge, MarkerType, Panel, ReactFlow, useEdgesState, useNodesState, useReactFlow } from "@xyflow/react";
+import { Background, ConnectionMode, Edge, MarkerType, OnNodeDrag, Panel, ReactFlow, useEdgesState, useNodesState, useReactFlow } from "@xyflow/react";
 import '@xyflow/react/dist/style.css';
 import NodeMolecular, { NodeMolType } from "./components/nodes/node_mol";
 import { nanoid } from "nanoid";
-import Molecules from 'molecules.js';
 import CustomConnectionLine from "./components/custom/line";
 import FloatingEdge from "./components/custom/edge";
-import { useEffect, useState } from "react";
-import { getFixo, ListAlcanosInfixo, ListAlcanosPreFixo } from "./utils/listNomeclatura";
+import { useCallback, useEffect, useState } from "react";
+import { plusNodes } from "./functions/plusNodes";
+import { parseFormula } from "./functions/parseFormula";
+import { connectNome } from "./functions/connectNome";
+import { buildFormula } from "./functions/buildFormula";
 
 const nodeType = {
   nodeMolecular: NodeMolecular
@@ -16,27 +18,9 @@ const nodeType = {
 export default function Home() {
   const [nodes, setNodes, onNodesChange] = useNodesState<NodeMolType>([]);
   const [edges, , onEdgesChange] = useEdgesState<Edge>([]);
-  const { getNodes, setEdges } = useReactFlow();
+  const { getIntersectingNodes, setEdges } = useReactFlow();
   const [formula, setFormula] = useState('');
   const [resultOrg, setResultOrg] = useState<string>('');
-
-  const plusNodes = (molecula: string) => {
-    const lastNode = getNodes()[getNodes.length - 1];
-
-    const newNode: NodeMolType = {
-      id: `${nanoid(3)}`,
-      type: "nodeMolecular",
-      data: {
-        nome: molecula
-      },
-      position: {
-        x: lastNode ? ((lastNode.position.x) + (lastNode.measured?.width ?? 0)) + 50 : 0,
-        y: lastNode ? ((lastNode.position.y)) : 0
-      },
-    }
-
-    setNodes(nds => [...nds, newNode]);
-  }
 
   const defaultEdgeOptions = {
     type: 'floating',
@@ -54,71 +38,50 @@ export default function Home() {
     stroke: '#b1b1b7',
   };
 
-  const connectNome = () => {
-    // 1. Contagem de átomos
-    const atomCounts: Record<string, number> = {};
-    nodes.forEach(n => {
-      const el = n.data.nome;
-      atomCounts[el] = (atomCounts[el] || 0) + 1;
-    });
+  const onNodeDrag: OnNodeDrag<NodeMolType> = useCallback((event, draggedNode) => {
+    const [intersected] = getIntersectingNodes(draggedNode);
 
-    // 2. Contagem de ligações C–C
-    let conexoesCC = 0;
-    edges.forEach(e => {
-      const a = nodes.find(n => n.id === e.source)?.data.nome;
-      const b = nodes.find(n => n.id === e.target)?.data.nome;
-      if (a === 'C' && b === 'C') conexoesCC++;
-    });
+    if (!intersected) return;
 
-    // 3. Montar fórmula
-    const mol = Object.entries(atomCounts)
-      .sort((a, b) => a[0] === 'C' ? -1 : b[0] === 'C' ? 1 : 0)
-      .map(([el, n]) => el + (n > 1 ? n : ''))
-      .join('');
-    setFormula(mol);
+    const nomeA = draggedNode.data.nome;
+    const nomeB = intersected.data.nome;
 
-    // 4. Parse com molecules.js
-    const m = new Molecules();
-    const parsed: { C?: number, H?: number } = m.getMolecules(mol);
+    const parsedA = parseFormula(nomeA);
+    const parsedB = parseFormula(nomeB as string);
 
-    // 5. Log dos resultados
-    console.log(parsed);             // ex: { C: 2, H: 1 }
-    console.log('Ligações C–C:', conexoesCC);
-
-    const ligacoesCCMap = new Map<string, number>();
-
-    edges.forEach(e => {
-      const sourceNode = nodes.find(n => n.id === e.source);
-      const targetNode = nodes.find(n => n.id === e.target);
-      const nomeA = sourceNode?.data.nome;
-      const nomeB = targetNode?.data.nome;
-
-      if (nomeA === 'C' && nomeB === 'C') {
-        const idsOrdenados = [e.source, e.target].sort();
-        const key = idsOrdenados.join('-');
-        ligacoesCCMap.set(key, (ligacoesCCMap.get(key) || 0) + 1);
-      }
-    });
-
-    // Contar quantas são simples, duplas, triplas
-    let simples = 0, duplas = 0, triplas = 0;
-    for (const count of ligacoesCCMap.values()) {
-      if (count === 1) simples++;
-      else if (count === 2) duplas++;
-      else if (count >= 3) triplas++;
+    for (const el in parsedB) {
+      parsedA[el] = (parsedA[el] || 0) + parsedB[el];
     }
 
-    console.log('C–C simples:', simples);
-    console.log('C–C duplas:', duplas);
-    console.log('C–C triplas ou mais:', triplas);
+    const newNome = buildFormula(parsedA);
 
-    const findPreFixo = ListAlcanosPreFixo.find(e => e.n == parsed.C)?.fixo;
-    const findInFixo = getFixo(simples, duplas, triplas);
+    setNodes((prevNodes) => {
+      const filtered = prevNodes.filter(
+        (n) => n.id !== draggedNode.id && n.id !== intersected.id
+      );
 
-    const result = findPreFixo?.concat(findInFixo??'', 'O');
-    console.log(result)
-    setResultOrg(result??"");
-  }
+      const newNode: NodeMolType = {
+        id: nanoid(3),
+        position: {
+          x: (draggedNode.position.x + intersected.position.x) / 2,
+          y: (draggedNode.position.y + intersected.position.y) / 2,
+        },
+        data: { nome: newNome },
+        type: 'nodeMolecular',
+      };
+
+      return [...filtered, newNode];
+    });
+  }, []);
+
+  useEffect(() => {
+    connectNome({
+      edges,
+      nodes,
+      setFormula,
+      setResultOrg
+    });
+  }, [nodes, edges]);
 
   return (
     <main className="flex flex-col gap-2 h-screen w-full">
@@ -130,6 +93,7 @@ export default function Home() {
         edges={edges}
         onEdgesChange={onEdgesChange}
         onNodesChange={onNodesChange}
+        onNodeDragStop={onNodeDrag}
         onConnect={({ source, sourceHandle, target, targetHandle }) => {
           setEdges(eds => {
             const listenerCount = eds.filter(e => e.source === source && e.target === target).length;
@@ -144,7 +108,20 @@ export default function Home() {
             };
             return [...eds, newEdge];
           });
-          connectNome();
+          connectNome({
+            edges,
+            nodes,
+            setFormula,
+            setResultOrg
+          });
+        }}
+        onEdgesDelete={() => {
+          connectNome({
+            edges,
+            nodes,
+            setFormula,
+            setResultOrg
+          });
         }}
         connectionMode={ConnectionMode.Loose}
         nodeTypes={nodeType}
@@ -160,25 +137,25 @@ export default function Home() {
           <span className="flex flex-row justify-center w-fit gap-2">
             <div
               onClick={() => {
-                plusNodes('C')
+                plusNodes({ molecula: 'C', nodes: nodes, setNodes: setNodes })
               }}
-              className="size-10 flex justify-center shadow cursor-grab hover:-translate-y-2 transition-transform duration-150 ease-in-out items-center font-semibold rounded-full text-center text-white bg-black"
+              className="size-10 flex justify-center select-none shadow cursor-pointer hover:-translate-y-2 transition-transform duration-150 ease-in-out items-center font-semibold rounded-full text-center text-white bg-black"
             >
               C
             </div>
             <div
               onClick={() => {
-                plusNodes('O')
+                plusNodes({ molecula: 'O', nodes: nodes, setNodes: setNodes })
               }}
-              className="size-10 flex justify-center shadow cursor-grab hover:-translate-y-2 transition-transform duration-150 ease-in-out items-center font-semibold rounded-full text-center text-white bg-black"
+              className="size-10 flex justify-center select-none shadow cursor-pointer hover:-translate-y-2 transition-transform duration-150 ease-in-out items-center font-semibold rounded-full text-center text-white bg-black"
             >
               O
             </div>
             <div
               onClick={() => {
-                plusNodes('H')
+                plusNodes({ molecula: 'H', nodes: nodes, setNodes: setNodes })
               }}
-              className="size-10 flex justify-center shadow cursor-grab hover:-translate-y-2 transition-transform duration-150 ease-in-out items-center font-semibold rounded-full text-center text-white bg-black"
+              className="size-10 flex justify-center select-none shadow cursor-pointer hover:-translate-y-2 transition-transform duration-150 ease-in-out items-center font-semibold rounded-full text-center text-white bg-black"
             >
               H
             </div>

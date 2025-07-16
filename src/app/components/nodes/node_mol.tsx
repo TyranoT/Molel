@@ -13,10 +13,8 @@ function NodeMolecular({ data, id }: NodeProps<NodeMolType>) {
 
     const isTarget = connection.inProgress && connection.fromNode.id !== id;
 
-    const label = isTarget ? 'Drop here' : 'Drag to connect'
-
     return (
-        <div className="flex justify-center items-center text-center bg-white rounded-full size-20 text-black text-2xl font-semibold customNode">
+        <div className="flex justify-center items-center text-center bg-white rounded-full size-[100px] text-black text-2xl font-semibold customNode">
             <div className="relative w-1/2 h-1/2 flex justify-center items-center">
                 {data.nome}
                 {!connection.inProgress && (
