@@ -68,3 +68,6 @@ div.customHandle {
 .nodrag {
   pointer-events: none;
 }
+.react-flow__panel.react-flow__attribution.bottom.right {
+  display: none;
+}
