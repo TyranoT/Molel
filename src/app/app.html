@@ -1,7 +1,41 @@
-<main class="h-screen w-full">
-  <h1 class="bg-zinc-40">
-    Hello World
-  </h1>
+<main class="min-h-screen w-full bg-principal">
+  <header class="flex flex-row justify-between items-center p-3 min-h-[50px]">
+    <h1 class="text-auxiliar font-sora text-4xl tracking-wider">
+      Molel
+    </h1>
+
+    <nav class="flex flex-row items-center font-ibm h-full gap-4 text-lg text-auxiliar">
+      <button
+        #btnSobre
+        type="button"
+        class="relative inline-flex cursor-pointer border-0 bg-transparent p-0 text-lg text-auxiliar outline-none"
+      >
+        Sobre
+        <span
+          class="pointer-events-none absolute bottom-0 left-0 right-0 h-0.5 origin-bottom bg-auxiliar"
+          data-nav-line
+          aria-hidden="true"
+        ></span>
+      </button>
+      <div class="h-[30px] border-l border-auxiliar"></div>
+      <button
+        #btnContato
+        type="button"
+        class="relative inline-flex cursor-pointer border-0 bg-transparent p-0 text-lg text-auxiliar outline-none"
+      >
+        Contato
+        <span
+          class="pointer-events-none absolute bottom-0 left-0 right-0 h-0.5 origin-bottom bg-auxiliar"
+          data-nav-line
+          aria-hidden="true"
+        ></span>
+      </button>
+    </nav>
+
+    <button hlmBtn type="button" class="cursor-pointer font-sora!">
+      Entrar
+    </button>
+  </header>
 </main>
 
 <router-outlet />
