@@ -24,9 +24,7 @@ export class App implements AfterViewInit, OnDestroy {
   private readonly platformId = inject(PLATFORM_ID);
 
   @ViewChild('btnSobre', { read: ElementRef }) private readonly btnSobre!: ElementRef<HTMLElement>;
-  @ViewChild('btnContato', { read: ElementRef })
-
-  private readonly btnContato!: ElementRef<HTMLElement>;
+  @ViewChild('btnContato', { read: ElementRef }) private readonly btnContato!: ElementRef<HTMLElement>;
 
   private readonly disposers: Array<() => void> = [];
 
