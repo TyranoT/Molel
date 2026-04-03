@@ -5,6 +5,7 @@
     "ng": "ng",
     "start": "ng serve",
     "build": "ng build",
+    "build:elements": "node scripts/build-element-properties.mjs public/data/pubchem-elements.csv",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "serve:ssr:molel": "node dist/molel/server/server.mjs"
@@ -33,6 +34,7 @@
     "@angular/platform-server": "^20.3.0",
     "@angular/router": "^20.3.0",
     "@angular/ssr": "^20.3.10",
+    "@rdkit/rdkit": "^2025.3.4-1.0.0",
     "@spartan-ng/brain": "^0.0.1-alpha.659",
     "@tailwindcss/postcss": "^4.1.17",
     "class-variance-authority": "^0.7.0",

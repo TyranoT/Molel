@@ -12,12 +12,75 @@
   </header>
 
   <div class="relative flex min-h-0 flex-1 flex-col gap-0 lg:flex-row">
-    <div
-      #host
-      class="canvas-host relative z-0 min-h-[45vh] min-w-0 flex-1 lg:min-h-0"
-      role="application"
-      aria-label="Área de desenho molecular"
-    ></div>
+    <div class="relative flex min-h-0 min-w-0 flex-1 flex-col">
+      <div
+        class="font-ibm flex shrink-0 flex-wrap items-center gap-2 border-b border-white/10 bg-principal/15 px-3 py-2 text-[11px] text-auxiliar/80"
+        role="toolbar"
+        aria-label="Ferramentas do canvas"
+      >
+        <div class="flex gap-1.5">
+          <button
+            type="button"
+            class="font-sora rounded-md border px-2.5 py-1 text-xs transition focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-secundaria"
+            [class.border-secundaria/80]="modoFerramenta() === 'colocar'"
+            [class.bg-principal/50]="modoFerramenta() === 'colocar'"
+            [class.border-white/20]="modoFerramenta() !== 'colocar'"
+            (click)="setModo('colocar')"
+          >
+            Colocar
+          </button>
+          <button
+            type="button"
+            class="font-sora rounded-md border px-2.5 py-1 text-xs transition focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-secundaria"
+            [class.border-secundaria/80]="modoFerramenta() === 'ligar'"
+            [class.bg-principal/50]="modoFerramenta() === 'ligar'"
+            [class.border-white/20]="modoFerramenta() !== 'ligar'"
+            (click)="setModo('ligar')"
+          >
+            Ligar
+          </button>
+        </div>
+        @if (modoFerramenta() === 'ligar') {
+          <div
+            class="flex flex-wrap items-center gap-1 border-l border-white/15 pl-2"
+            role="group"
+            aria-label="Ordem da ligação"
+          >
+            <span class="text-[10px] text-auxiliar/50">Ordem:</span>
+            @for (opt of opcoesOrdemLigacao; track opt.id) {
+              <button
+                type="button"
+                class="font-sora min-w-8 rounded border px-2 py-0.5 text-[11px] transition focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-secundaria"
+                [class.border-secundaria/80]="ordemLigacao() === opt.id"
+                [class.bg-principal/50]="ordemLigacao() === opt.id"
+                [class.border-white/20]="ordemLigacao() !== opt.id"
+                [attr.aria-pressed]="ordemLigacao() === opt.id"
+                [attr.title]="tituloOrdemLigacao[opt.id]"
+                (click)="setOrdemLigacao(opt.id)"
+              >
+                {{ opt.label }}
+              </button>
+            }
+          </div>
+        }
+        <p class="m-0 max-w-prose flex-1 leading-snug">
+          <span class="text-auxiliar/55">Pan:</span> botão direito ou roda do mouse.
+          <span class="text-auxiliar/55">Colocar:</span> clique num elemento na paleta e clique ou arraste para o canvas.
+          <span class="text-auxiliar/55">Ligar:</span> escolha a ordem (1–3, Ar), dois cliques nos átomos; clique na linha para alternar a ordem.
+          <span class="text-auxiliar/55">Teclas:</span> Escape; Delete remove átomo; em Ligar: 1–4 ou A para ordem.
+        </p>
+      </div>
+      <div
+        #host
+        class="canvas-host relative z-0 min-h-[45vh] min-w-0 flex-1 lg:min-h-0"
+        role="application"
+        aria-label="Área de desenho molecular"
+        (click)="onHostCanvasClick($event)"
+        (dragenter)="onHostDragEnter($event)"
+        (dragover)="onHostDragOver($event)"
+        (drop)="onHostDrop($event)"
+      ></div>
+    </div>
 
     <aside
       class="elementos-paleta font-ibm absolute left-0 top-1/2 z-50 flex h-[min(70vh,28rem)] min-h-56 -translate-y-1/2 flex-col overflow-hidden rounded-r-lg border border-white/10 bg-principal shadow-lg transition-[width] duration-300 ease-out"
@@ -87,9 +150,23 @@
                   @for (item of cat.elementos; track item.simbolo) {
                     <button
                       type="button"
-                      class="font-ibm min-w-9 rounded border border-white/15 bg-principal/50 px-2 py-1 text-xs text-auxiliar hover:bg-principal/70"
-                      [attr.title]="item.nome"
+                      class="font-ibm flex min-w-9 items-center gap-1.5 rounded border px-2 py-1 text-xs transition hover:bg-principal/70"
+                      [class.border-secundaria/90]="elementoSelecionado() === item.simbolo"
+                      [class.bg-principal/70]="elementoSelecionado() === item.simbolo"
+                      [class.border-white/15]="elementoSelecionado() !== item.simbolo"
+                      [class.bg-principal/50]="elementoSelecionado() !== item.simbolo"
+                      [attr.title]="tituloPaletaComPubChem(item) + '\nClique para selecionar ou arraste até o canvas.'"
+                      [attr.aria-pressed]="elementoSelecionado() === item.simbolo"
+                      draggable="true"
+                      (click)="selecionarElemento(item.simbolo)"
+                      (dragstart)="onElementoDragStart($event, item.simbolo)"
+                      (dragend)="onElementoDragEnd()"
                     >
+                      <span
+                        class="h-3.5 w-3.5 shrink-0 rounded-sm border border-white/25"
+                        [style.background]="corCpkPaleta(item.simbolo)"
+                        aria-hidden="true"
+                      ></span>
                       {{ item.simbolo }}
                     </button>
                   }
@@ -104,21 +181,143 @@
     <aside
       class="notation-panel font-ibm flex max-h-[40vh] shrink-0 flex-col gap-3 overflow-auto border-t border-white/10 bg-principal/25 p-4 text-auxiliar lg:max-h-none lg:w-[min(100%,22rem)] lg:border-l lg:border-t-0"
     >
+      @if (mensagemErro(); as err) {
+        <p
+          class="m-0 rounded-md border border-amber-500/40 bg-amber-950/30 px-3 py-2 text-xs text-amber-100/95"
+          role="status"
+          aria-live="polite"
+        >
+          {{ err }}
+        </p>
+      }
+      @if (simboloPropriedadesGrafo(); as el) {
+        <section class="border-b border-white/10 pb-3">
+          <h2 class="font-sora mb-2 text-xs font-semibold uppercase tracking-wide text-auxiliar/70">
+            Propriedades (PubChem)
+          </h2>
+          <div class="mb-3 flex items-center gap-3">
+            <span
+              class="h-10 w-10 shrink-0 rounded-md border border-white/15 shadow-inner"
+              [style.background]="corCpkPaleta(el)"
+              aria-hidden="true"
+            ></span>
+            <div class="min-w-0">
+              <p class="font-sora m-0 text-xl font-semibold leading-tight text-auxiliar">
+                {{ el }}
+              </p>
+              <p class="font-ibm m-0 mt-0.5 truncate text-xs text-auxiliar/70">
+                {{ nomePortuguesElemento(el) }}
+              </p>
+            </div>
+          </div>
+          @if (propriedadesElementoSelecionado(); as pe) {
+            <p class="font-ibm m-0 mb-2 text-[10px] leading-snug text-auxiliar/50">
+              Dados de referência; nome em inglês na fonte.
+            </p>
+            <dl class="font-ibm m-0 grid grid-cols-[minmax(0,7.5rem)_1fr] gap-x-2 gap-y-1 text-[11px] leading-snug">
+              <dt class="text-auxiliar/55">Nome</dt>
+              <dd class="m-0 text-auxiliar/95">{{ pe.name }}</dd>
+              <dt class="text-auxiliar/55">Z</dt>
+              <dd class="m-0 text-auxiliar/95">{{ pe.atomicNumber }}</dd>
+              <dt class="text-auxiliar/55">Massa (u)</dt>
+              <dd class="m-0 text-auxiliar/95">{{ pe.atomicMass }}</dd>
+              <dt class="text-auxiliar/55">Eletronegatividade</dt>
+              <dd class="m-0 text-auxiliar/95">{{ fmtProp(pe.electronegativity) }}</dd>
+              <dt class="text-auxiliar/55">Raio (pm)</dt>
+              <dd class="m-0 text-auxiliar/95">{{ fmtProp(pe.atomicRadius) }}</dd>
+              <dt class="text-auxiliar/55">Config.</dt>
+              <dd class="m-0 break-all text-auxiliar/95">{{ pe.electronConfiguration }}</dd>
+              <dt class="text-auxiliar/55">Estados de oxidação</dt>
+              <dd class="m-0 text-auxiliar/95">{{ pe.oxidationStates }}</dd>
+              <dt class="text-auxiliar/55">Estado (STD)</dt>
+              <dd class="m-0 text-auxiliar/95">{{ pe.standardState }}</dd>
+              <dt class="text-auxiliar/55">Grupo / bloco</dt>
+              <dd class="m-0 text-auxiliar/95">{{ pe.groupBlock }}</dd>
+              <dt class="text-auxiliar/55">Ano</dt>
+              <dd class="m-0 text-auxiliar/95">{{ pe.yearDiscovered }}</dd>
+            </dl>
+          } @else {
+            <p class="font-ibm m-0 text-[11px] text-auxiliar/55">Sem dados PubChem para este símbolo.</p>
+          }
+        </section>
+      }
+      @let comb = graphSvc.combinacaoCanvas();
+      <section class="border-b border-white/10 pb-3">
+        <h2 class="font-sora mb-1 text-xs font-semibold uppercase tracking-wide text-auxiliar/70">
+          Combinação (átomos e ligações no canvas)
+        </h2>
+        <p class="font-ibm m-0 mb-2 text-[10px] leading-snug text-auxiliar/50">
+          Fórmula (Hill) e massa usam só os símbolos dos nós (sem hidrogénios implícitos). As ligações
+          desenhadas contam no resumo abaixo e entram no Molfile/RDKit (SMILES/InChI).
+        </p>
+        <dl class="font-ibm m-0 grid grid-cols-[minmax(0,7.5rem)_1fr] gap-x-2 gap-y-1 text-[11px] leading-snug">
+          <dt class="text-auxiliar/55">Fórmula</dt>
+          <dd class="m-0 text-auxiliar/95">{{ comb.formula }}</dd>
+          <dt class="text-auxiliar/55">Massa (u)</dt>
+          <dd class="m-0 text-auxiliar/95">
+            @if (comb.massa.massaU !== null) {
+              {{ comb.massa.massaU.toFixed(4) }}
+            } @else {
+              —
+              @if (comb.massa.simbolosSemMassa.length > 0) {
+                <span class="text-auxiliar/55">
+                  (sem massa atómica: {{ comb.massa.simbolosSemMassa.join(', ') }})
+                </span>
+              }
+            }
+          </dd>
+          <dt class="text-auxiliar/55">Ligações</dt>
+          <dd class="m-0 text-auxiliar/95">{{ comb.ligacoes.total }}</dd>
+          <dt class="text-auxiliar/55">Por tipo</dt>
+          <dd class="m-0 text-auxiliar/95">{{ fmtLigacoes(comb.ligacoes) }}</dd>
+        </dl>
+      </section>
       <section>
-        <h2 class="font-sora mb-2 text-xs font-semibold uppercase tracking-wide text-auxiliar/70">
+        <h2 class="font-sora mb-1 text-xs font-semibold uppercase tracking-wide text-auxiliar/70">
           Notação (Mermaid-like)
         </h2>
+        <p class="font-ibm m-0 mb-2 text-[10px] leading-snug text-auxiliar/50">
+          Diagrama de conectividade com IDs internos; é uma vista do grafo, não uma norma química.
+        </p>
         <pre
           class="notation-pre m-0 whitespace-pre-wrap rounded-md border border-white/10 bg-principal/40 p-3 text-[11px] leading-relaxed text-auxiliar/95"
         >{{ graphSvc.notationMermaid() }}</pre>
       </section>
       <section>
-        <h2 class="font-sora mb-2 text-xs font-semibold uppercase tracking-wide text-auxiliar/70">
-          SMILES (futuro)
+        <h2 class="font-sora mb-1 text-xs font-semibold uppercase tracking-wide text-auxiliar/70">
+          SMILES / InChI (RDKit)
         </h2>
-        <pre
-          class="notation-pre m-0 whitespace-pre-wrap rounded-md border border-white/10 bg-principal/40 p-3 text-[11px] leading-relaxed text-auxiliar/80"
-        >{{ graphSvc.notationSmiles() }}</pre>
+        <p class="font-ibm m-0 mb-2 text-[10px] leading-snug text-auxiliar/50">
+          Derivado do Molfile do canvas via RDKit; nomes abaixo vêm do PubChem quando o SMILES
+          corresponde a um composto catalogado.
+        </p>
+        <dl class="font-ibm m-0 grid grid-cols-[minmax(0,7.5rem)_1fr] gap-x-2 gap-y-1 text-[11px] leading-snug">
+          <dt class="text-auxiliar/55">SMILES</dt>
+          <dd class="m-0 break-all text-auxiliar/95">{{ graphSvc.notationSmiles() }}</dd>
+          <dt class="text-auxiliar/55">InChI</dt>
+          <dd class="m-0 break-all text-auxiliar/95">{{ graphSvc.notationInchi() }}</dd>
+          @if (graphSvc.rdkitError(); as rerr) {
+            <dt class="text-auxiliar/55">RDKit</dt>
+            <dd class="m-0 text-amber-200/90">{{ rerr }}</dd>
+          }
+          @if (graphSvc.pubchemLoading()) {
+            <dt class="text-auxiliar/55">PubChem</dt>
+            <dd class="m-0 text-auxiliar/60">A carregar…</dd>
+          } @else {
+            @if (graphSvc.pubchemTitle(); as t) {
+              <dt class="text-auxiliar/55">Título</dt>
+              <dd class="m-0 text-auxiliar/95">{{ t }}</dd>
+            }
+            @if (graphSvc.pubchemIupac(); as iup) {
+              <dt class="text-auxiliar/55">IUPAC (PubChem)</dt>
+              <dd class="m-0 wrap-break-word text-auxiliar/95">{{ iup }}</dd>
+            }
+            @if (graphSvc.pubchemError(); as perr) {
+              <dt class="text-auxiliar/55">PubChem</dt>
+              <dd class="m-0 text-auxiliar/60">{{ perr }}</dd>
+            }
+          }
+        </dl>
       </section>
     </aside>
   </div>

@@ -1,50 +1,107 @@
-import { computed, Injectable, signal } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
+import { computed, effect, inject, Injectable, PLATFORM_ID, signal } from '@angular/core';
+import { firstValueFrom } from 'rxjs';
 import type { AtomNode, BondOrder, BondEdge } from '../domain';
-import { MolecularGraph } from '../domain';
-import { serializeMermaidLike, serializeSmilesStub } from '../notation';
+import { MolecularGraph, resumoCombinacaoCanvas } from '../domain';
+import { serializeMermaidLike, serializeMolfileV2000 } from '../notation';
 import { ElementoQuimico } from '../domain/atom-node';
+import { PubchemCompoundService } from './pubchem-compound.service';
+import { RdkitBridgeService } from './rdkit-bridge.service';
 
 @Injectable()
 export class MolecularGraphService {
   private readonly _graph = signal(MolecularGraph.empty());
   readonly graph = this._graph.asReadonly();
 
+  private readonly rdkit = inject(RdkitBridgeService);
+  private readonly pubchem = inject(PubchemCompoundService);
+  private readonly platformId = inject(PLATFORM_ID);
+
+  private requestSeq = 0;
+
   readonly notationMermaid = computed(() => serializeMermaidLike(this._graph()));
-  readonly notationSmiles = computed(() => serializeSmilesStub(this._graph()));
+
+  /** Fórmula (Hill) e massa a partir dos átomos desenhados no canvas. */
+  readonly combinacaoCanvas = computed(() => resumoCombinacaoCanvas(this._graph()));
+
+  /** Molfile V2000 derivado do grafo (entrada do RDKit). */
+  readonly molfileText = computed(() => serializeMolfileV2000(this._graph()));
+
+  readonly notationSmiles = signal<string>('—');
+  readonly notationInchi = signal<string>('—');
+  readonly rdkitError = signal<string | null>(null);
+
+  readonly pubchemTitle = signal<string | null>(null);
+  readonly pubchemIupac = signal<string | null>(null);
+  readonly pubchemLoading = signal(false);
+  readonly pubchemError = signal<string | null>(null);
 
   private atomSeq = 0;
   private bondSeq = 0;
 
   constructor() {
-    this.seedDemo();
-  }
+    this._graph.set(MolecularGraph.empty());
 
-  /** C–O–H em linha para validar visual e notação. */
-  private seedDemo(): void {
-    let g = MolecularGraph.empty();
-    const atoms: AtomNode[] = [
-      { id: 'atom_1', symbol: ElementoQuimico.Carbono, x: 2350, y: 2500 },
-      { id: 'atom_2', symbol: ElementoQuimico.Oxigenio, x: 2520, y: 2500 },
-      { id: 'atom_3', symbol: ElementoQuimico.Hidrogenio, x: 2690, y: 2500 },
-    ];
-    for (const a of atoms) {
-      g = g.addAtom(a);
-    }
-    g = g.addBond({
-      id: 'bond_1',
-      fromAtomId: 'atom_1',
-      toAtomId: 'atom_2',
-      order: 'single',
+    effect(() => {
+      const mol = this.molfileText();
+      const seq = ++this.requestSeq;
+
+      if (!isPlatformBrowser(this.platformId)) {
+        this.notationSmiles.set('—');
+        this.notationInchi.set('—');
+        this.rdkitError.set(null);
+        this.pubchemTitle.set(null);
+        this.pubchemIupac.set(null);
+        this.pubchemLoading.set(false);
+        this.pubchemError.set(null);
+        return;
+      }
+
+      void (async () => {
+        this.rdkitError.set(null);
+        this.pubchemError.set(null);
+
+        const r = await this.rdkit.molBlockToDescriptor(mol);
+        if (seq !== this.requestSeq) {
+          return;
+        }
+
+        this.rdkitError.set(r.error);
+        this.notationSmiles.set(r.smiles && r.smiles.length > 0 ? r.smiles : '—');
+        this.notationInchi.set(r.inchi && r.inchi.length > 0 ? r.inchi : '—');
+
+        if (!r.smiles || r.error) {
+          this.pubchemTitle.set(null);
+          this.pubchemIupac.set(null);
+          this.pubchemLoading.set(false);
+          return;
+        }
+
+        this.pubchemLoading.set(true);
+        try {
+          const names = await firstValueFrom(this.pubchem.getNamesBySmiles(r.smiles));
+          if (seq !== this.requestSeq) {
+            return;
+          }
+          this.pubchemTitle.set(names.title);
+          this.pubchemIupac.set(names.iupac);
+          this.pubchemError.set(null);
+        } catch (e) {
+          if (seq !== this.requestSeq) {
+            return;
+          }
+          this.pubchemTitle.set(null);
+          this.pubchemIupac.set(null);
+          this.pubchemError.set(
+            e instanceof Error ? e.message : 'Falha ao consultar o PubChem.',
+          );
+        } finally {
+          if (seq === this.requestSeq) {
+            this.pubchemLoading.set(false);
+          }
+        }
+      })();
     });
-    g = g.addBond({
-      id: 'bond_2',
-      fromAtomId: 'atom_2',
-      toAtomId: 'atom_3',
-      order: 'single',
-    });
-    this._graph.set(g);
-    this.atomSeq = 3;
-    this.bondSeq = 2;
   }
 
   addAtom(symbol: ElementoQuimico, x: number, y: number): string {
@@ -59,5 +116,21 @@ export class MolecularGraphService {
     const edge: BondEdge = { id, fromAtomId, toAtomId, order };
     this._graph.update((prev) => prev.addBond(edge));
     return id;
+  }
+
+  moveAtom(atomId: string, x: number, y: number): void {
+    this._graph.update((prev) => prev.moveAtom(atomId, x, y));
+  }
+
+  removeAtom(atomId: string): void {
+    this._graph.update((prev) => prev.removeAtom(atomId));
+  }
+
+  removeBond(bondId: string): void {
+    this._graph.update((prev) => prev.removeBond(bondId));
+  }
+
+  setBondOrder(bondId: string, order: BondOrder): void {
+    this._graph.update((prev) => prev.updateBondOrder(bondId, order));
   }
 }

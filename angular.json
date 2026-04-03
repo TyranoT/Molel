@@ -19,6 +19,16 @@
               {
                 "glob": "**/*",
                 "input": "public"
+              },
+              {
+                "glob": "RDKit_minimal.js",
+                "input": "node_modules/@rdkit/rdkit/dist",
+                "output": "/rdkit"
+              },
+              {
+                "glob": "RDKit_minimal.wasm",
+                "input": "node_modules/@rdkit/rdkit/dist",
+                "output": "/rdkit"
               }
             ],
             "styles": [
@@ -77,6 +87,16 @@
               {
                 "glob": "**/*",
                 "input": "public"
+              },
+              {
+                "glob": "RDKit_minimal.js",
+                "input": "node_modules/@rdkit/rdkit/dist",
+                "output": "/rdkit"
+              },
+              {
+                "glob": "RDKit_minimal.wasm",
+                "input": "node_modules/@rdkit/rdkit/dist",
+                "output": "/rdkit"
               }
             ],
             "styles": [

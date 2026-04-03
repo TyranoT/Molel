@@ -1,5 +1,5 @@
 import type { AtomNode } from './atom-node';
-import type { BondEdge } from './bond-edge';
+import type { BondEdge, BondOrder } from './bond-edge';
 
 /** Snapshot imutável para notação e serialização. */
 export interface MolecularGraphSnapshot {
@@ -62,6 +62,55 @@ export class MolecularGraph implements MolecularGraphSnapshot {
     const nextBonds = new Map(this.bonds);
     nextBonds.set(edge.id, edge);
     return new MolecularGraph(new Map(this.atoms), nextBonds);
+  }
+
+  updateBondOrder(bondId: string, order: BondOrder): MolecularGraph {
+    const prev = this.bonds.get(bondId);
+    if (!prev) {
+      throw new Error(`BondEdge id inexistente: ${bondId}`);
+    }
+    if (prev.order === order) {
+      return this;
+    }
+    const nextBonds = new Map(this.bonds);
+    nextBonds.set(bondId, { ...prev, order });
+    return new MolecularGraph(new Map(this.atoms), nextBonds);
+  }
+
+  moveAtom(id: string, x: number, y: number): MolecularGraph {
+    const prev = this.atoms.get(id);
+    if (!prev) {
+      throw new Error(`AtomNode id inexistente: ${id}`);
+    }
+    const nextAtoms = new Map(this.atoms);
+    nextAtoms.set(id, { ...prev, x, y });
+    return new MolecularGraph(nextAtoms, new Map(this.bonds));
+  }
+
+  removeBond(bondId: string): MolecularGraph {
+    if (!this.bonds.has(bondId)) {
+      throw new Error(`BondEdge id inexistente: ${bondId}`);
+    }
+    const nextBonds = new Map(this.bonds);
+    nextBonds.delete(bondId);
+    return new MolecularGraph(new Map(this.atoms), nextBonds);
+  }
+
+  /** Remove o átomo e todas as ligações incidentes. */
+  removeAtom(atomId: string): MolecularGraph {
+    if (!this.atoms.has(atomId)) {
+      throw new Error(`AtomNode id inexistente: ${atomId}`);
+    }
+    const nextAtoms = new Map(this.atoms);
+    nextAtoms.delete(atomId);
+
+    const nextBonds = new Map(this.bonds);
+    for (const [bid, b] of nextBonds) {
+      if (b.fromAtomId === atomId || b.toAtomId === atomId) {
+        nextBonds.delete(bid);
+      }
+    }
+    return new MolecularGraph(nextAtoms, nextBonds);
   }
 }
 

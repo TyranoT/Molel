@@ -1,8 +1,9 @@
 import { Container } from 'pixi.js';
 import type { Viewport } from 'pixi-viewport';
 import type { MolecularGraph } from '../domain';
-import { createEdgeView } from './edge-view';
+import { createBondEdgeView } from './edge-view';
 import { createNodeView } from './node-view';
+import type { MoleculeSyncContext } from './molecule-sync-context';
 
 /**
  * Camada Pixi só-visual: sincroniza nós e ligações com o grafo do domínio.
@@ -11,6 +12,7 @@ export class MoleculeSceneLayer {
   private readonly root = new Container();
   private readonly edgesLayer = new Container();
   private readonly nodesLayer = new Container();
+  private readonly nodeById = new Map<string, Container>();
 
   constructor(viewport: Viewport) {
     this.root.addChild(this.edgesLayer);
@@ -18,13 +20,15 @@ export class MoleculeSceneLayer {
     viewport.addChild(this.root);
   }
 
-  sync(graph: MolecularGraph): void {
+  /** Reconstrói nós e arestas (ex.: mudança de estrutura ou fim de arraste). */
+  sync(graph: MolecularGraph, ctx: MoleculeSyncContext): void {
     for (const c of this.edgesLayer.removeChildren()) {
       c.destroy({ children: true });
     }
     for (const c of this.nodesLayer.removeChildren()) {
       c.destroy({ children: true });
     }
+    this.nodeById.clear();
 
     const atoms = graph.atoms;
 
@@ -32,16 +36,61 @@ export class MoleculeSceneLayer {
       const a = atoms.get(bond.fromAtomId);
       const b = atoms.get(bond.toAtomId);
       if (!a || !b) continue;
-      this.edgesLayer.addChild(createEdgeView(a.x, a.y, b.x, b.y, bond.order));
+      this.edgesLayer.addChild(
+        createBondEdgeView(
+          bond.id,
+          a.x,
+          a.y,
+          b.x,
+          b.y,
+          bond.order,
+          ctx.onBondPointerDown,
+        ),
+      );
     }
 
     for (const atom of graph.atoms.values()) {
-      this.nodesLayer.addChild(createNodeView(atom));
+      const nv = createNodeView(atom, ctx);
+      this.nodeById.set(atom.id, nv);
+      this.nodesLayer.addChild(nv);
+    }
+  }
+
+  /** Atualiza só posições e arestas (durante arraste, sem destruir nós). */
+  updateLayoutFromGraph(graph: MolecularGraph, ctx: MoleculeSyncContext): void {
+    for (const atom of graph.atoms.values()) {
+      const c = this.nodeById.get(atom.id);
+      if (c) {
+        c.position.set(atom.x, atom.y);
+      }
+    }
+
+    for (const c of this.edgesLayer.removeChildren()) {
+      c.destroy({ children: true });
+    }
+
+    const atoms = graph.atoms;
+    for (const bond of graph.bonds.values()) {
+      const a = atoms.get(bond.fromAtomId);
+      const b = atoms.get(bond.toAtomId);
+      if (!a || !b) continue;
+      this.edgesLayer.addChild(
+        createBondEdgeView(
+          bond.id,
+          a.x,
+          a.y,
+          b.x,
+          b.y,
+          bond.order,
+          ctx.onBondPointerDown,
+        ),
+      );
     }
   }
 
   destroy(): void {
     this.root.parent?.removeChild(this.root);
     this.root.destroy({ children: true });
+    this.nodeById.clear();
   }
 }

@@ -6,6 +6,8 @@
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <!-- RDKit: carregar por script global para não empacotar o bundle Node (fs/crypto). -->
+  <script src="rdkit/RDKit_minimal.js" defer></script>
 </head>
 <body>
   <app-root></app-root>
