@@ -15,10 +15,10 @@
     "module": "preserve",
     "paths": {
       "@spartan-ng/helm/button": [
-        "src/app/shared/libs/ui/button/src/index.ts"
+        "src/app/shared/libs/ui/button/src/index.tsx.ts"
       ],
       "@spartan-ng/helm/utils": [
-        "src/app/shared/libs/ui/utils/src/index.ts"
+        "src/app/shared/libs/ui/utils/src/index.tsx.ts"
       ]
     }
   },

@@ -1,0 +1,125 @@
+<main class="hero-landing flex min-h-dvh flex-col">
+  <header
+    class="flex shrink-0 items-center justify-between gap-4 border-b border-white/10 bg-principal/20 px-4 py-3 backdrop-blur-sm md:px-6"
+  >
+    <a
+      routerLink="/"
+      class="font-sora text-sm text-auxiliar no-underline transition hover:text-auxiliar hover:underline hover:underline-offset-4"
+    >
+      ← Início
+    </a>
+    <span class="font-ibm text-xs tracking-wide text-auxiliar/55">Canvas</span>
+  </header>
+
+  <div class="relative flex min-h-0 flex-1 flex-col gap-0 lg:flex-row">
+    <div
+      #host
+      class="canvas-host relative z-0 min-h-[45vh] min-w-0 flex-1 lg:min-h-0"
+      role="application"
+      aria-label="Área de desenho molecular"
+    ></div>
+
+    <aside
+      class="elementos-paleta font-ibm absolute left-0 top-1/2 z-50 flex h-[min(70vh,28rem)] min-h-56 -translate-y-1/2 flex-col overflow-hidden rounded-r-lg border border-white/10 bg-principal shadow-lg transition-[width] duration-300 ease-out"
+      [class.w-11]="!paletaAberta()"
+      [class.w-[min(18rem,calc(100vw-1rem))]]="paletaAberta()"
+      [class.h-11]="!paletaAberta()"
+      [attr.aria-expanded]="paletaAberta()"
+    >
+      <div
+        class="flex shrink-0 items-center gap-2 border-b border-white/10 p-2"
+        [class.justify-between]="paletaAberta()"
+        [class.flex-col]="!paletaAberta()"
+        [class.py-3]="!paletaAberta()"
+      >
+        @if (paletaAberta()) {
+          <h2 class="font-sora m-0 min-w-0 flex-1 text-sm font-semibold text-auxiliar">Elementos</h2>
+        }
+        <button
+          type="button"
+          class="font-sora flex shrink-0 items-center justify-center rounded-md border border-white/20 bg-principal/80 px-2 py-1.5 text-xs text-auxiliar hover:bg-principal focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-secundaria"
+          (click)="alternarPaleta()"
+          [attr.aria-label]="paletaAberta() ? 'Retrair paleta de elementos' : 'Abrir paleta de elementos'"
+        >
+          @if (paletaAberta()) {
+            <span class="inline-block" aria-hidden="true">◀</span>
+          } @else {
+            <span class="inline-block" aria-hidden="true">▶</span>
+          }
+        </button>
+      </div>
+
+      @if (paletaAberta()) {
+        <div class="flex shrink-0 flex-col gap-2 border-b border-white/10 bg-principal/90 p-2">
+          <label class="sr-only" for="filtro-elementos">Filtrar elementos</label>
+          <input
+            id="filtro-elementos"
+            type="search"
+            placeholder="Filtrar por símbolo ou nome…"
+            class="w-full rounded-md border border-white/25 bg-auxiliar/95 px-2 py-1.5 text-xs text-principal placeholder:text-principal/45 outline-none ring-0 focus:border-secundaria/80"
+            [value]="filtroTexto()"
+            (input)="filtroTexto.set($any($event.target).value)"
+          />
+
+          <label class="sr-only" for="categoria-elementos">Categoria</label>
+          <select
+            id="categoria-elementos"
+            class="w-full rounded-md border border-white/25 bg-auxiliar/95 px-2 py-1.5 text-xs text-principal outline-none focus:border-secundaria/80"
+            [value]="categoriaFiltro()"
+            (change)="categoriaFiltro.set($any($event.target).value)"
+          >
+            @for (opt of opcoesCategoria; track opt.id) {
+              <option [value]="opt.id">{{ opt.label }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="elementos-paleta-lista flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overflow-x-hidden p-2">
+          @if (paletaFiltrada().length === 0) {
+            <p class="font-ibm m-0 px-1 text-xs text-auxiliar/60">Nenhum elemento corresponde ao filtro.</p>
+          } @else {
+            @for (cat of paletaFiltrada(); track cat.id) {
+              <section class="flex flex-col gap-1.5">
+                <h3 class="font-sora m-0 text-[10px] font-semibold uppercase tracking-wide text-auxiliar/55">
+                  {{ cat.label }}
+                </h3>
+                <div class="flex flex-wrap gap-1.5">
+                  @for (item of cat.elementos; track item.simbolo) {
+                    <button
+                      type="button"
+                      class="font-ibm min-w-9 rounded border border-white/15 bg-principal/50 px-2 py-1 text-xs text-auxiliar hover:bg-principal/70"
+                      [attr.title]="item.nome"
+                    >
+                      {{ item.simbolo }}
+                    </button>
+                  }
+                </div>
+              </section>
+            }
+          }
+        </div>
+      }
+    </aside>
+
+    <aside
+      class="notation-panel font-ibm flex max-h-[40vh] shrink-0 flex-col gap-3 overflow-auto border-t border-white/10 bg-principal/25 p-4 text-auxiliar lg:max-h-none lg:w-[min(100%,22rem)] lg:border-l lg:border-t-0"
+    >
+      <section>
+        <h2 class="font-sora mb-2 text-xs font-semibold uppercase tracking-wide text-auxiliar/70">
+          Notação (Mermaid-like)
+        </h2>
+        <pre
+          class="notation-pre m-0 whitespace-pre-wrap rounded-md border border-white/10 bg-principal/40 p-3 text-[11px] leading-relaxed text-auxiliar/95"
+        >{{ graphSvc.notationMermaid() }}</pre>
+      </section>
+      <section>
+        <h2 class="font-sora mb-2 text-xs font-semibold uppercase tracking-wide text-auxiliar/70">
+          SMILES (futuro)
+        </h2>
+        <pre
+          class="notation-pre m-0 whitespace-pre-wrap rounded-md border border-white/10 bg-principal/40 p-3 text-[11px] leading-relaxed text-auxiliar/80"
+        >{{ graphSvc.notationSmiles() }}</pre>
+      </section>
+    </aside>
+  </div>
+</main>

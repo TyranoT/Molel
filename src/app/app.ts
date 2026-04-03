@@ -10,14 +10,14 @@ import {
   signal,
 } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
-import { HlmButton } from '@spartan-ng/helm/button';
 import gsap from 'gsap';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, HlmButton],
+  imports: [RouterOutlet],
   templateUrl: './app.html',
 })
+
 export class App implements AfterViewInit, OnDestroy {
   protected readonly title = signal('molel');
 
